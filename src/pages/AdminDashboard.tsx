@@ -16,7 +16,9 @@ import {
     Trash2,
     Key,
     Edit,
-    Calendar
+    Calendar,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import Toast from '../components/Toast';
 
@@ -54,6 +56,14 @@ export default function AdminDashboard() {
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [expandedInfluencer, setExpandedInfluencer] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Password Visibility State
+    const [showAddInfluencerPassword, setShowAddInfluencerPassword] = useState(false);
+    const [showResetInfluencerPassword, setShowResetInfluencerPassword] = useState(false);
+    const [showAddAdminPassword, setShowAddAdminPassword] = useState(false);
+    const [showChangePasswordCurrent, setShowChangePasswordCurrent] = useState(false);
+    const [showChangePasswordNew, setShowChangePasswordNew] = useState(false);
+    const [showChangePasswordConfirm, setShowChangePasswordConfirm] = useState(false);
 
     // Add Modal State
     const [showAddModal, setShowAddModal] = useState(false);
@@ -215,27 +225,66 @@ export default function AdminDashboard() {
                 throw new Error('Password must be at least 6 characters');
             }
 
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: addAdminForm.email,
-                password: addAdminForm.password,
-                options: { data: { full_name: addAdminForm.name } }
-            });
-
-            if (authError) throw authError;
-            if (!authData.user) throw new Error('Failed to create user');
-
-            const { error: updateError } = await supabase
+            // Check if user already exists in profiles
+            const { data: existingUsers, error: checkError } = await supabase
                 .from('profiles')
-                .update({ role: 'admin' })
-                .eq('id', authData.user.id);
+                .select('id, email')
+                .eq('email', addAdminForm.email);
 
-            if (updateError) throw updateError;
+            if (checkError) {
+                console.error('Error checking existing user:', checkError);
+            }
 
-            showToast(`Admin "${addAdminForm.name}" created successfully!`, 'success');
+            if (existingUsers && existingUsers.length > 0) {
+                // User exists - promote to admin
+                const userId = existingUsers[0].id;
+                console.log('User exists, upgrading to admin:', userId);
+
+                // 1. Update role to admin
+                const { error: updateError } = await supabase
+                    .from('profiles')
+                    .update({ role: 'admin' })
+                    .eq('id', userId);
+
+                if (updateError) throw updateError;
+
+                // 2. Update password using Edge Function
+                const { error: passwordError } = await supabase.functions.invoke('admin-update-password', {
+                    body: {
+                        userId: userId,
+                        newPassword: addAdminForm.password
+                    }
+                });
+
+                if (passwordError) {
+                    console.error('Error updating password for existing user:', passwordError);
+                    showToast('Admin promoted, but failed to update password. Please use "Change Password" later.', 'info');
+                } else {
+                    showToast(`Existing user "${addAdminForm.name}" promoted to Admin and password updated!`, 'success');
+                }
+
+            } else {
+                // User does not exist - create new using Edge Function
+                // We use an Edge Function to create the user so we don't switch the current session
+                const { data: createData, error: createError } = await supabase.functions.invoke('admin-create-user', {
+                    body: {
+                        email: addAdminForm.email,
+                        password: addAdminForm.password,
+                        fullName: addAdminForm.name,
+                        role: 'admin'
+                    }
+                });
+
+                if (createError) throw createError;
+
+                showToast(`Admin "${addAdminForm.name}" created successfully!`, 'success');
+            }
+
             setShowAddAdminModal(false);
             setAddAdminForm({ name: '', email: '', password: '' });
             await fetchAdmins();
         } catch (err: any) {
+            console.error('Error adding admin:', err);
             showToast(err.message || 'Failed to create admin', 'error');
         } finally {
             setAdminSubmitting(false);
@@ -303,61 +352,54 @@ export default function AdminDashboard() {
                 throw new Error('This promo code is already in use');
             }
 
-            // Check if user already exists in auth.users (via admin query)
-            const { data: existingUsers, error: checkError } = await supabase
-                .from('profiles')
-                .select('id, email')
-                .eq('email', addInfluencerForm.email);
-
-            if (checkError) {
-                console.error('Error checking existing user:', checkError);
-            }
-
             let userId: string;
             let isNewUser = false;
 
-            if (existingUsers && existingUsers.length > 0) {
-                // User already exists - use their existing ID
-                userId = existingUsers[0].id;
-
-                // Check if they're already an influencer
-                const { data: existingInfluencer } = await supabase
-                    .from('influencers')
-                    .select('id')
-                    .eq('user_id', userId)
-                    .single();
-
-                if (existingInfluencer) {
-                    throw new Error('This user is already registered as an influencer');
-                }
-
-                // Password is not used for existing users
-                console.log('Converting existing user to influencer');
-            } else {
-                // User doesn't exist - create new account
-                if (!addInfluencerForm.password) {
-                    throw new Error('Password is required for new users');
-                }
-
+            if (addInfluencerForm.password) {
+                // Password provided: Use Edge Function to create/update user
                 if (addInfluencerForm.password.length < 6) {
                     throw new Error('Password must be at least 6 characters');
                 }
 
-                const { data: authData, error: authError } = await supabase.auth.signUp({
-                    email: addInfluencerForm.email,
-                    password: addInfluencerForm.password,
-                    options: {
-                        data: {
-                            full_name: addInfluencerForm.name,
-                        }
+                const { data: userData, error: createError } = await supabase.functions.invoke('admin-create-user', {
+                    body: {
+                        email: addInfluencerForm.email,
+                        password: addInfluencerForm.password,
+                        fullName: addInfluencerForm.name,
+                        // We don't necessarily need to set a specific role for influencers, 
+                        // but we could if we wanted to distinguish them in profiles.
+                        // For now, we leave role as is (default 'user' or whatever it was).
                     }
                 });
 
-                if (authError) throw authError;
-                if (!authData.user) throw new Error('Failed to create user account');
+                if (createError) throw createError;
+                userId = userData.user_id;
+                // We can infer if it was new based on message or just assume success
+                isNewUser = userData.message.includes('created');
+            } else {
+                // No password provided: User MUST exist
+                const { data: existingUser, error: checkError } = await supabase
+                    .from('profiles')
+                    .select('id')
+                    .eq('email', addInfluencerForm.email)
+                    .single();
 
-                userId = authData.user.id;
-                isNewUser = true;
+                if (checkError || !existingUser) {
+                    throw new Error('Password is required for new users');
+                }
+                userId = existingUser.id;
+                console.log('Using existing user without password update:', userId);
+            }
+
+            // Check if user is already an influencer
+            const { data: existingInfluencer } = await supabase
+                .from('influencers')
+                .select('id')
+                .eq('user_id', userId)
+                .single();
+
+            if (existingInfluencer) {
+                throw new Error('This user is already registered as an influencer');
             }
 
             // Create influencer record
@@ -383,8 +425,8 @@ export default function AdminDashboard() {
             // Refresh the influencers list
             await fetchAdminData();
 
-            if (isNewUser) {
-                showToast(`Success! New influencer "${addInfluencerForm.name}" has been created.\n\nLogin credentials:\nEmail: ${addInfluencerForm.email}\nPassword: ${addInfluencerForm.password}\nPromo Code: ${addInfluencerForm.promoCode}\n\nPlease save these credentials!`, 'success');
+            if (addInfluencerForm.password) {
+                showToast(`Success! Influencer "${addInfluencerForm.name}" has been configured.\n\nLogin credentials:\nEmail: ${addInfluencerForm.email}\nPassword: ${addInfluencerForm.password}\nPromo Code: ${addInfluencerForm.promoCode}`, 'success');
             } else {
                 showToast(`Success! Existing user "${addInfluencerForm.name}" converted to influencer.\n\nEmail: ${addInfluencerForm.email}\nPromo Code: ${addInfluencerForm.promoCode}`, 'success');
             }
@@ -1184,15 +1226,24 @@ export default function AdminDashboard() {
                                 <label htmlFor="influencer-password" className="block text-sm font-medium text-slate-700 mb-1">
                                     Password <span className="text-slate-400">(optional)</span>
                                 </label>
-                                <input
-                                    id="influencer-password"
-                                    type="password"
-                                    value={addInfluencerForm.password}
-                                    onChange={(e) => setAddInfluencerForm({ ...addInfluencerForm, password: e.target.value })}
-                                    placeholder="Only needed for new users"
-                                    minLength={6}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                />
+                                <div className="relative">
+                                    <input
+                                        id="influencer-password"
+                                        type={showAddInfluencerPassword ? 'text' : 'password'}
+                                        value={addInfluencerForm.password}
+                                        onChange={(e) => setAddInfluencerForm({ ...addInfluencerForm, password: e.target.value })}
+                                        placeholder="Only needed for new users"
+                                        minLength={6}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddInfluencerPassword(!showAddInfluencerPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                    >
+                                        {showAddInfluencerPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
                                 <p className="text-xs text-slate-500 mt-1">
                                     Required for new users (min 6 chars). Leave blank if user already exists.
                                 </p>
@@ -1414,17 +1465,26 @@ export default function AdminDashboard() {
                                 <label htmlFor="new-password" className="block text-sm font-medium text-slate-700 mb-1">
                                     New Password <span className="text-red-500">*</span>
                                 </label>
-                                <input
-                                    id="new-password"
-                                    type="text"
-                                    value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    placeholder="Enter new password"
-                                    required
-                                    minLength={6}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    autoComplete="off"
-                                />
+                                <div className="relative">
+                                    <input
+                                        id="new-password"
+                                        type={showResetInfluencerPassword ? 'text' : 'password'}
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder="Enter new password"
+                                        required
+                                        minLength={6}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                                        autoComplete="off"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowResetInfluencerPassword(!showResetInfluencerPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                    >
+                                        {showResetInfluencerPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
                                 <p className="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
                             </div>
 
@@ -1561,25 +1621,43 @@ export default function AdminDashboard() {
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
-                                <input
-                                    type="password"
-                                    value={changePasswordForm.newPassword}
-                                    onChange={(e) => setChangePasswordForm({ ...changePasswordForm, newPassword: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                    required
-                                    minLength={6}
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showChangePasswordNew ? 'text' : 'password'}
+                                        value={changePasswordForm.newPassword}
+                                        onChange={(e) => setChangePasswordForm({ ...changePasswordForm, newPassword: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10"
+                                        required
+                                        minLength={6}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowChangePasswordNew(!showChangePasswordNew)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                    >
+                                        {showChangePasswordNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
-                                <input
-                                    type="password"
-                                    value={changePasswordForm.confirmPassword}
-                                    onChange={(e) => setChangePasswordForm({ ...changePasswordForm, confirmPassword: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                    required
-                                    minLength={6}
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showChangePasswordConfirm ? 'text' : 'password'}
+                                        value={changePasswordForm.confirmPassword}
+                                        onChange={(e) => setChangePasswordForm({ ...changePasswordForm, confirmPassword: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10"
+                                        required
+                                        minLength={6}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowChangePasswordConfirm(!showChangePasswordConfirm)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                    >
+                                        {showChangePasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
                             </div>
                             <button
                                 type="submit"
@@ -1626,14 +1704,23 @@ export default function AdminDashboard() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                                <input
-                                    type="password"
-                                    value={addAdminForm.password}
-                                    onChange={(e) => setAddAdminForm({ ...addAdminForm, password: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                    required
-                                    minLength={6}
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showAddAdminPassword ? 'text' : 'password'}
+                                        value={addAdminForm.password}
+                                        onChange={(e) => setAddAdminForm({ ...addAdminForm, password: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10"
+                                        required
+                                        minLength={6}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddAdminPassword(!showAddAdminPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                    >
+                                        {showAddAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
                                 <p className="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
                             </div>
                             <button
