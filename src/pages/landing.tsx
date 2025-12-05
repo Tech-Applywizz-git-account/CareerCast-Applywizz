@@ -1,58 +1,3 @@
-// import { motion, useScroll, useTransform } from "framer-motion";
-// import gsap from "gsap";
-// import { ScrollToPlugin } from "gsap/ScrollToPlugin";
-// import { useEffect, useRef, useState } from "react";
-// import { 
-//   ArrowRight, 
-//   CheckCircle2, 
-//   Video, 
-//   Upload, 
-//   Share2, 
-//   BarChart3, 
-//   Sparkles,
-//   ChevronDown,
-//   Play,
-//   Star,
-//   Linkedin,
-//   Youtube,
-//   Twitter,
-//   Instagram,
-//   Plus,
-//   Minus,
-//   X
-// } from "lucide-react";
-// import { Button } from "../components/ui/button";
-// import { Card, CardContent } from "../components/ui/card";
-// import { Input } from "../components/ui/input";
-// import { useNavigate } from "react-router-dom";
-// import { useAuthContext } from "../contexts/AuthContext";
-// import { TypeAnimation } from "react-type-animation";
-
-// export default function Landing() {
-//   const navigate = useNavigate();
-//   const { isAuthenticated } = useAuthContext();
-//   const [openFaq, setOpenFaq] = useState<number | null>(null);
-//   const [showPricing, setShowPricing] = useState(false);
-//   const [userCountry, setUserCountry] = useState<'US' | 'GB' | 'OTHER'>('OTHER');
-//   const [showTerms, setShowTerms] = useState(false);
-//   const { scrollY } = useScroll();
-//   const headerBlur = useTransform(scrollY, [0, 100], [10, 25]);
-//   const mainRef = useRef<HTMLDivElement>(null);
-
-//   useEffect(() => {
-//     // Smooth scroll behavior
-//     if (mainRef.current) {
-//       mainRef.current.style.scrollBehavior = 'smooth';
-//     }
-//   }, []);
-
-//   useEffect(() => {
-//     // GSAP smooth scrolling for in-page anchors
-//     gsap.registerPlugin(ScrollToPlugin);
-//     const links = document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]');
-
-//     const onClick = (e: Event) => {
-//       const anchor = e.currentTarget as HTMLAnchorElement;
 //       const href = anchor.getAttribute("href") || "";
 //       if (!href.startsWith("#")) return;
 
@@ -5308,7 +5253,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 // Removed GSAP imports and related logic due to module resolution errors.
 // Scrolling is now handled using native browser smooth scrolling.
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowRight,
   CheckCircle2,
@@ -5367,6 +5312,7 @@ const glow = "pointer-events-none absolute -inset-0.5 bg-gradient-to-r from-blue
 
 export default function Landing() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated } = useAuthContext();
 
   const mainRef = useRef<HTMLDivElement | null>(null);
@@ -5374,7 +5320,7 @@ export default function Landing() {
   const headerBlur = useTransform(scrollY, [0, 100], [8, 18]);
 
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [userCountry, setUserCountry] = useState<"US" | "GB" | "OTHER">("OTHER");
+  const [userCountry, setUserCountry] = useState<"US" | "GB" | "OTHER">("US");
   const [activePlanIndex, setActivePlanIndex] = useState(0);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -5480,12 +5426,12 @@ export default function Landing() {
           setActivePlanIndex(1);
         } else {
           // unknown — show BOTH cards for user to choose
-          setUserCountry("OTHER");
+          setUserCountry("US");
           setActivePlanIndex(0);
         }
       } catch (error) {
         console.warn("Could not detect country:", error);
-        setUserCountry("OTHER");
+        setUserCountry("US");
         setActivePlanIndex(0);
       }
     };
@@ -5497,7 +5443,7 @@ export default function Landing() {
     const isUK = plan === "UK";
     const amount = isUK ? 12.99 : 12.99;
     const currency = isUK ? "GBP" : "USD";
-    navigate("/signup", {
+    navigate("/signup" + location.search, {
       state: { plan, amount, currency },
     });
   };
@@ -5506,7 +5452,7 @@ export default function Landing() {
   const closeTermsModal = () => setShowTermsModal(false);
 
   return (
-    <div ref={mainRef} className="fixed inset-0 bg-slate-50 text-slate-900 overflow-x-hidden">
+    <div ref={mainRef} className="fixed inset-0 bg-slate-50 text-slate-900 overflow-x-hidden" >
       <motion.header className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 shadow-sm" style={{ backdropFilter: useTransform(headerBlur, (v) => `blur(${v}px)`) }}>
         <div className="w-full px-8 lg:px-16 py-3.5">
           <div className="flex items-center justify-between gap-4">
@@ -5666,7 +5612,7 @@ export default function Landing() {
       </section>
 
       {/* PRICING – fixed rendering logic: US-only, GB-only, or BOTH when UNKNOWN */}
-      <section id="pricing" className="py-24 bg-slate-50">
+      <section id="pricing" className="py-24 bg-slate-50" >
         <div className="container mx-auto px-6">
           <p className="text-center text-lg font-semibold tracking-[0.2em] uppercase text-violet-600">Pricing</p>
           <motion.h2 variants={slideUp} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} custom={0} className="text-3xl sm:text-4xl font-bold text-center mb-16 text-slate-900">Simple one-time pricing</motion.h2>
@@ -5750,10 +5696,10 @@ export default function Landing() {
             </div>
           </motion.div>
         </div>
-      </section>
+      </section >
 
       {/* REST OF THE PAGE (testimonials, faq, footer) unchanged below */}
-      <section className="py-20 bg-white">
+      < section className="py-20 bg-white" >
         <div className="w-full px-8 lg:px-16">
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-14">
             <h2 className="text-3xl lg:text-4xl font-black mb-3 text-slate-900">HOW NETWORK NOTE HELPED JOB SEEKERS GET HIRED</h2>
@@ -5769,7 +5715,7 @@ export default function Landing() {
             ))}
           </div>
         </div>
-      </section>
+      </section >
 
       <section id="resources" className="py-20 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
         <div className="w-full px-8 lg:px-16">
@@ -5817,30 +5763,32 @@ export default function Landing() {
         </div>
       </footer>
 
-      {showTermsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="relative mx-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
-            <button onClick={closeTermsModal} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            <h2 className="text-xl font-semibold text-slate-900 mb-4">Network Note – Terms &amp; Conditions</h2>
-            <div className="text-slate-600 space-y-3 text-sm">
-              <p className="font-medium">By proceeding, I agree that:</p>
-              <ul className="space-y-2 list-disc list-inside">
-                <li>I am purchasing lifetime access to Network Note's premium features and resources</li>
-                <li>This is a digital, non-refundable product, no cancellations or refunds after purchase</li>
-                <li>Job links, company information or career portals shown inside the product may change over time</li>
-                <li>Sponsorship or job availability depends on each company's hiring policy at the time of access</li>
-                <li>Network Note is not a recruitment agency and does not guarantee any job or sponsorship</li>
-                <li>I will use the platform only for my personal job search purposes</li>
-              </ul>
-              <div className="pt-4 mt-4 border-t border-slate-200">
-                <button onClick={closeTermsModal} className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 focus:ring-2 focus:ring-slate-400 text-sm">Close</button>
+      {
+        showTermsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="relative mx-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+              <button onClick={closeTermsModal} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+              <h2 className="text-xl font-semibold text-slate-900 mb-4">Network Note – Terms &amp; Conditions</h2>
+              <div className="text-slate-600 space-y-3 text-sm">
+                <p className="font-medium">By proceeding, I agree that:</p>
+                <ul className="space-y-2 list-disc list-inside">
+                  <li>I am purchasing lifetime access to Network Note's premium features and resources</li>
+                  <li>This is a digital, non-refundable product, no cancellations or refunds after purchase</li>
+                  <li>Job links, company information or career portals shown inside the product may change over time</li>
+                  <li>Sponsorship or job availability depends on each company's hiring policy at the time of access</li>
+                  <li>Network Note is not a recruitment agency and does not guarantee any job or sponsorship</li>
+                  <li>I will use the platform only for my personal job search purposes</li>
+                </ul>
+                <div className="pt-4 mt-4 border-t border-slate-200">
+                  <button onClick={closeTermsModal} className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 focus:ring-2 focus:ring-slate-400 text-sm">Close</button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }

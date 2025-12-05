@@ -168,8 +168,11 @@ export default function InfluencerDashboard() {
     );
   }
 
-  // Filter signups based on date range
+  // Filter signups based on date range AND payment status (completed only)
   const filteredSignups = (influencerData.signups || []).filter(signup => {
+    // Only show completed/paid signups
+    if (signup.payment_status !== 'success') return false;
+
     if (dateRange === 'all') return true;
 
     const date = new Date(signup.created_at);
@@ -240,7 +243,7 @@ export default function InfluencerDashboard() {
     return btoa(`${code}|${checksum}`);
   };
 
-  const referralLink = `${window.location.origin}/signup?ref=${generateSecureHash(influencerData.promo_code)}`;
+  const referralLink = `${window.location.origin}/?ref=${generateSecureHash(influencerData.promo_code)}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralLink);

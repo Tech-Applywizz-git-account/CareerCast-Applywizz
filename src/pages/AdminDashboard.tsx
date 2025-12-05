@@ -18,7 +18,8 @@ import {
     Edit,
     Calendar,
     Eye,
-    EyeOff
+    EyeOff,
+    Copy
 } from 'lucide-react';
 import Toast from '../components/Toast';
 
@@ -171,9 +172,19 @@ export default function AdminDashboard() {
                         return { ...influencer, signups: [] };
                     }
 
+                    const signupsList = signups || [];
+                    const totalSignups = signupsList.length;
+                    const totalPaidSignups = signupsList.filter(s => s.payment_status === 'success').length;
+                    const totalRevenue = signupsList
+                        .filter(s => s.payment_status === 'success')
+                        .reduce((sum, s) => sum + (s.amount || 0), 0);
+
                     return {
                         ...influencer,
-                        signups: signups || []
+                        signups: signupsList,
+                        total_signups: totalSignups,
+                        total_paid_signups: totalPaidSignups,
+                        total_revenue: totalRevenue
                     };
                 })
             );
@@ -589,6 +600,18 @@ export default function AdminDashboard() {
     const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'pending' | 'failed'>('all');
     const [dateFilter, setDateFilter] = useState('');
 
+    // Generate secure hash for referral link (PromoCode + Checksum)
+    const generateSecureHash = (code: string) => {
+        const checksum = code.split('').reverse().join('');
+        return btoa(`${code}|${checksum}`);
+    };
+
+    const handleCopyLink = (promoCode: string) => {
+        const referralLink = `${window.location.origin}/?ref=${generateSecureHash(promoCode)}`;
+        navigator.clipboard.writeText(referralLink);
+        showToast('Affiliate link copied to clipboard!', 'success');
+    };
+
     const toggleInfluencer = (id: string) => {
         if (expandedInfluencer === id) {
             setExpandedInfluencer(null);
@@ -913,16 +936,20 @@ export default function AdminDashboard() {
                                                 {/* Name & Email */}
                                                 <div className="md:col-span-2">
                                                     <div className="flex items-center gap-3">
-                                                        {/* Rank Indicator */}
-                                                        {influencerRanks.get(influencer.id) && influencerRanks.get(influencer.id)! <= 3 && (
-                                                            <div className={`flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full font-bold text-white text-sm ${influencerRanks.get(influencer.id) === 1 ? 'bg-yellow-500' :
-                                                                influencerRanks.get(influencer.id) === 2 ? 'bg-slate-400' : 'bg-orange-700'
-                                                                }`}>
-                                                                #{influencerRanks.get(influencer.id)}
-                                                            </div>
-                                                        )}
                                                         <div>
-                                                            <p className="text-sm font-semibold text-slate-900">{influencer.name}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="text-sm font-semibold text-slate-900">{influencer.name}</p>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleCopyLink(influencer.promo_code);
+                                                                    }}
+                                                                    className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                                                                    title="Copy Affiliate Link"
+                                                                >
+                                                                    <Copy className="h-3 w-3" />
+                                                                </button>
+                                                            </div>
                                                             <p className="text-xs text-slate-600">{influencer.email}</p>
                                                             <div className="mt-1">
                                                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
