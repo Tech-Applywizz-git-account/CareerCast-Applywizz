@@ -95,8 +95,19 @@ export default function AdminDashboard() {
     });
     const [addSignupSubmitting, setAddSignupSubmitting] = useState(false);
 
+    // Admin Management State
+    const [admins, setAdmins] = useState<any[]>([]);
+    const [currentAdmin, setCurrentAdmin] = useState<any>(null);
+    const [showAddAdminModal, setShowAddAdminModal] = useState(false);
+    const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+    const [showAdminListDropdown, setShowAdminListDropdown] = useState(false);
+    const [addAdminForm, setAddAdminForm] = useState({ name: '', email: '', password: '' });
+    const [changePasswordForm, setChangePasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    const [adminSubmitting, setAdminSubmitting] = useState(false);
+
     useEffect(() => {
         fetchAdminData();
+        fetchAdmins();
     }, []);
 
     const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -162,6 +173,105 @@ export default function AdminDashboard() {
             setError(err.message || 'Failed to load admin dashboard');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchAdmins = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: currentAdminData } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            setCurrentAdmin(currentAdminData);
+
+            const { data: allAdmins } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('role', 'admin')
+                .order('created_at', { ascending: false });
+
+            setAdmins(allAdmins || []);
+        } catch (err: any) {
+            console.error('Error fetching admins:', err);
+        }
+    };
+
+    const handleAddAdmin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setAdminSubmitting(true);
+
+        try {
+            if (!addAdminForm.name || !addAdminForm.email || !addAdminForm.password) {
+                throw new Error('All fields are required');
+            }
+
+            if (addAdminForm.password.length < 6) {
+                throw new Error('Password must be at least 6 characters');
+            }
+
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: addAdminForm.email,
+                password: addAdminForm.password,
+                options: { data: { full_name: addAdminForm.name } }
+            });
+
+            if (authError) throw authError;
+            if (!authData.user) throw new Error('Failed to create user');
+
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ role: 'admin' })
+                .eq('id', authData.user.id);
+
+            if (updateError) throw updateError;
+
+            showToast(`Admin "${addAdminForm.name}" created successfully!`, 'success');
+            setShowAddAdminModal(false);
+            setAddAdminForm({ name: '', email: '', password: '' });
+            await fetchAdmins();
+        } catch (err: any) {
+            showToast(err.message || 'Failed to create admin', 'error');
+        } finally {
+            setAdminSubmitting(false);
+        }
+    };
+
+    const handleChangePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setAdminSubmitting(true);
+
+        try {
+            if (!changePasswordForm.newPassword || !changePasswordForm.confirmPassword) {
+                throw new Error('All fields are required');
+            }
+
+            if (changePasswordForm.newPassword !== changePasswordForm.confirmPassword) {
+                throw new Error('New passwords do not match');
+            }
+
+            if (changePasswordForm.newPassword.length < 6) {
+                throw new Error('New password must be at least 6 characters');
+            }
+
+            // Directly update user password without requiring current password
+            const { error: updateError } = await supabase.auth.updateUser({
+                password: changePasswordForm.newPassword
+            });
+
+            if (updateError) throw updateError;
+
+            showToast('Password changed successfully!', 'success');
+            setShowChangePasswordModal(false);
+            setChangePasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        } catch (err: any) {
+            showToast(err.message || 'Failed to change password', 'error');
+        } finally {
+            setAdminSubmitting(false);
         }
     };
 
@@ -558,12 +668,78 @@ export default function AdminDashboard() {
                                 <p className="text-sm text-slate-600">Influencer Management System</p>
                             </div>
                         </div>
-                        <button
-                            onClick={handleLogout}
-                            className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-                        >
-                            Logout
-                        </button>
+                        <div className="flex items-center gap-3">
+                            {/* Change Password Button */}
+                            <button
+                                onClick={() => setShowChangePasswordModal(true)}
+                                className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 border border-slate-300 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                            >
+                                <Key className="h-4 w-4" />
+                                Change Password
+                            </button>
+
+                            {/* Add Admin Button */}
+                            <button
+                                onClick={() => setShowAddAdminModal(true)}
+                                className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors"
+                            >
+                                <UserPlus className="h-4 w-4" />
+                                Add Admin
+                            </button>
+
+                            {/* View Admins Dropdown */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowAdminListDropdown(!showAdminListDropdown)}
+                                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 border border-slate-300 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                                >
+                                    <Shield className="h-4 w-4" />
+                                    Admins ({admins.length})
+                                    <ChevronDown className="h-4 w-4" />
+                                </button>
+
+                                {showAdminListDropdown && (
+                                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-slate-200 z-50">
+                                        <div className="p-4">
+                                            <h3 className="font-semibold text-slate-900 mb-3">All Admins</h3>
+                                            <div className="space-y-2 max-h-96 overflow-y-auto">
+                                                {admins.map((admin) => (
+                                                    <div
+                                                        key={admin.id}
+                                                        className={`p-3 rounded-lg ${admin.id === currentAdmin?.id ? 'bg-purple-50 border border-purple-200' : 'bg-slate-50'}`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div>
+                                                                <p className="font-medium text-slate-900">
+                                                                    {admin.email}
+                                                                    {admin.id === currentAdmin?.id && (
+                                                                        <span className="ml-2 text-xs bg-purple-600 text-white px-2 py-0.5 rounded">You</span>
+                                                                    )}
+                                                                </p>
+                                                                <p className="text-xs text-slate-500">
+                                                                    Added {new Date(admin.created_at).toLocaleDateString()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <p className="text-xs text-slate-500 mt-3 p-2 bg-blue-50 rounded border border-blue-200">
+                                                🔒 To switch admin accounts, please log out and log in with the other admin's credentials.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Logout Button */}
+                            <button
+                                onClick={handleLogout}
+                                className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                Logout
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1292,6 +1468,112 @@ export default function AdminDashboard() {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Change Password Modal */}
+            {showChangePasswordModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-slate-900">Change Password</h2>
+                            <button onClick={() => setShowChangePasswordModal(false)} className="text-slate-400 hover:text-slate-600">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleChangePassword} className="p-6 space-y-4">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                                <p className="text-sm text-blue-800">
+                                    Changing password for: <strong>{currentAdmin?.email}</strong>
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                                <input
+                                    type="password"
+                                    value={changePasswordForm.newPassword}
+                                    onChange={(e) => setChangePasswordForm({ ...changePasswordForm, newPassword: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    required
+                                    minLength={6}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+                                <input
+                                    type="password"
+                                    value={changePasswordForm.confirmPassword}
+                                    onChange={(e) => setChangePasswordForm({ ...changePasswordForm, confirmPassword: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    required
+                                    minLength={6}
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={adminSubmitting}
+                                className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                {adminSubmitting ? 'Changing...' : 'Change Password'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Admin Modal */}
+            {showAddAdminModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-slate-900">Add New Admin</h2>
+                            <button onClick={() => setShowAddAdminModal(false)} className="text-slate-400 hover:text-slate-600">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleAddAdmin} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                                <input
+                                    type="text"
+                                    value={addAdminForm.name}
+                                    onChange={(e) => setAddAdminForm({ ...addAdminForm, name: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                                <input
+                                    type="email"
+                                    value={addAdminForm.email}
+                                    onChange={(e) => setAddAdminForm({ ...addAdminForm, email: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                                <input
+                                    type="password"
+                                    value={addAdminForm.password}
+                                    onChange={(e) => setAddAdminForm({ ...addAdminForm, password: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    required
+                                    minLength={6}
+                                />
+                                <p className="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={adminSubmitting}
+                                className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                {adminSubmitting ? 'Creating...' : 'Create Admin'}
+                            </button>
+                        </form>
                     </div>
                 </div>
             )}
