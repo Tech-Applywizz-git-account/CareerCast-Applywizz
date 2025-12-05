@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../integrations/supabase/client';
-import { ArrowLeft, Users, DollarSign, TrendingUp, Copy, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Users, DollarSign, TrendingUp, Copy, CheckCircle, Calendar } from 'lucide-react';
 import Toast from '../components/Toast';
 import {
   BarChart,
@@ -40,7 +40,17 @@ interface InfluencerData {
   signups: Signup[];
 }
 
-const COLORS = ['#10b981', '#ef4444', '#f59e0b'];
+// High-contrast / Opposite color palette for distinct visibility
+const COLORS = [
+  '#2563eb', // Blue
+  '#f97316', // Orange (Opposite of Blue)
+  '#16a34a', // Green
+  '#dc2626', // Red (Opposite of Green)
+  '#9333ea', // Purple
+  '#eab308', // Yellow (Opposite of Purple)
+  '#0891b2', // Cyan
+  '#db2777', // Pink
+];
 
 export default function InfluencerDashboard() {
   const navigate = useNavigate();
@@ -49,7 +59,10 @@ export default function InfluencerDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const [dateRange, setDateRange] = useState<'all' | '30days' | '7days'>('all');
+
+  // Restored Filter State
+  const [dateRange, setDateRange] = useState<'all' | '30days' | '7days' | 'custom'>('all');
+  const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -158,7 +171,20 @@ export default function InfluencerDashboard() {
   // Filter signups based on date range
   const filteredSignups = (influencerData.signups || []).filter(signup => {
     if (dateRange === 'all') return true;
+
     const date = new Date(signup.created_at);
+
+    if (dateRange === 'custom') {
+      if (!customDateRange.start && !customDateRange.end) return true;
+
+      const start = customDateRange.start ? new Date(customDateRange.start) : new Date(0);
+      const end = customDateRange.end ? new Date(customDateRange.end) : new Date();
+      // Set end date to end of day to include all events on that day
+      end.setHours(23, 59, 59, 999);
+
+      return date >= start && date <= end;
+    }
+
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -176,29 +202,34 @@ export default function InfluencerDashboard() {
     .reduce((sum, s) => sum + (s.amount || 0), 0);
   const estimatedEarnings = totalRevenue * 0.20;
 
-  const pieData = [
-    { name: 'Paid', value: paidSignups },
-    { name: 'Pending', value: pendingSignups },
-    { name: 'Failed', value: failedSignups }
-  ].filter(item => item.value > 0);
+  // Daily trend data (group by date)
+  const sortedSignups = [...filteredSignups].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-  // Monthly trend data (group by month)
-  const monthlyData = filteredSignups.reduce((acc: any, signup) => {
-    const month = new Date(signup.created_at).toLocaleDateString('en-US', {
-      month: 'short',
-      year: 'numeric'
-    });
-    if (!acc[month]) {
-      acc[month] = { month, total: 0, paid: 0 };
+  const dailyData = sortedSignups.reduce((acc: any[], signup) => {
+    const date = new Date(signup.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const existing = acc.find(d => d.date === date);
+    if (existing) {
+      existing.total += 1;
+      if (signup.payment_status === 'success') existing.paid += 1;
+    } else {
+      acc.push({
+        date,
+        total: 1,
+        paid: signup.payment_status === 'success' ? 1 : 0
+      });
     }
-    acc[month].total += 1;
-    if (signup.payment_status === 'success') {
-      acc[month].paid += 1;
-    }
+    return acc;
+  }, []);
+
+  // Day of Week Pie Data
+  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayOfWeekMap = filteredSignups.reduce((acc: any, signup) => {
+    const day = daysOfWeek[new Date(signup.created_at).getDay()];
+    acc[day] = (acc[day] || 0) + 1;
     return acc;
   }, {});
 
-  const barChartData = Object.values(monthlyData).slice(-6); // Last 6 months
+  const dayOfWeekPieData = Object.entries(dayOfWeekMap).map(([name, value]) => ({ name, value }));
 
   // Generate secure hash for referral link (PromoCode + Checksum)
   // This prevents users from manually editing the base64 string to guess other codes
@@ -250,28 +281,62 @@ export default function InfluencerDashboard() {
         {/* Controls Row */}
         <div className="flex flex-col md:flex-row gap-4 mb-8 justify-between items-start md:items-center">
           {/* Date Filter */}
-          <div className="bg-white p-1 rounded-lg border border-slate-200 inline-flex">
-            <button
-              onClick={() => setDateRange('all')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${dateRange === 'all' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-            >
-              All Time
-            </button>
-            <button
-              onClick={() => setDateRange('30days')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${dateRange === '30days' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-            >
-              Last 30 Days
-            </button>
-            <button
-              onClick={() => setDateRange('7days')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${dateRange === '7days' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-            >
-              Last 7 Days
-            </button>
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full md:w-auto">
+            <div className="bg-white p-1 rounded-lg border border-slate-200 inline-flex">
+              <button
+                onClick={() => setDateRange('all')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${dateRange === 'all' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+              >
+                All Time
+              </button>
+              <button
+                onClick={() => setDateRange('30days')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${dateRange === '30days' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+              >
+                Last 30 Days
+              </button>
+              <button
+                onClick={() => setDateRange('7days')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${dateRange === '7days' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+              >
+                Last 7 Days
+              </button>
+              <button
+                onClick={() => setDateRange('custom')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${dateRange === 'custom' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+              >
+                Custom
+              </button>
+            </div>
+
+            {/* Custom Date Inputs */}
+            {dateRange === 'custom' && (
+              <div className="flex items-center gap-4 bg-white p-2 rounded-lg border border-slate-200 animate-in fade-in slide-in-from-left-4 duration-300">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">From</span>
+                  <input
+                    type="date"
+                    value={customDateRange.start}
+                    onChange={(e) => setCustomDateRange({ ...customDateRange, start: e.target.value })}
+                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  />
+                </div>
+                <div className="h-4 w-px bg-slate-200"></div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">To</span>
+                  <input
+                    type="date"
+                    value={customDateRange.end}
+                    onChange={(e) => setCustomDateRange({ ...customDateRange, end: e.target.value })}
+                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -365,15 +430,15 @@ export default function InfluencerDashboard() {
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Bar Chart - Monthly Trend */}
-          {barChartData.length > 0 && (
+          {/* Bar Chart - Daily Trend */}
+          {dailyData.length > 0 && (
             <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Monthly Signups Trend</h3>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Daily Signups Trend</h3>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={barChartData}>
+                <BarChart data={dailyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="month" stroke="#64748b" fontSize={12} />
-                  <YAxis stroke="#64748b" fontSize={12} />
+                  <XAxis dataKey="date" stroke="#64748b" fontSize={12} />
+                  <YAxis stroke="#64748b" fontSize={12} allowDecimals={false} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: '#fff',
@@ -389,14 +454,14 @@ export default function InfluencerDashboard() {
             </div>
           )}
 
-          {/* Pie Chart - Payment Status */}
-          {pieData.length > 0 && (
+          {/* Pie Chart - Day of Week Distribution */}
+          {dayOfWeekPieData.length > 0 && (
             <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Payment Status Distribution</h3>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Signups by Day of Week</h3>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={pieData}
+                    data={dayOfWeekPieData}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -405,7 +470,7 @@ export default function InfluencerDashboard() {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {pieData.map((entry, index) => (
+                    {dayOfWeekPieData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
