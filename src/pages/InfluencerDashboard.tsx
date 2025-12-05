@@ -199,11 +199,11 @@ export default function InfluencerDashboard() {
   const pendingSignups = filteredSignups.filter(s => s.payment_status === 'pending').length;
   const failedSignups = filteredSignups.filter(s => s.payment_status === 'failed').length;
 
-  // Calculate Revenue and Earnings (Assuming 20% commission)
-  const totalRevenue = filteredSignups
-    .filter(s => s.payment_status === 'success')
-    .reduce((sum, s) => sum + (s.amount || 0), 0);
-  const estimatedEarnings = totalRevenue * 0.20;
+  // Calculate Earnings: 5 USD per completed signup, converted to INR at 85 rate
+  // filteredSignups already contains only 'success' status signups
+  const completedSignupsCount = filteredSignups.length;
+  const earningsUSD = completedSignupsCount * 5;
+  const estimatedEarningsINR = earningsUSD * 85;
 
   // Daily trend data (group by date)
   const sortedSignups = [...filteredSignups].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
@@ -405,7 +405,7 @@ export default function InfluencerDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          {/* <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-green-100 rounded-xl">
                 <CheckCircle className="h-6 w-6 text-green-600" />
@@ -415,7 +415,7 @@ export default function InfluencerDashboard() {
                 <h4 className="text-2xl font-bold text-slate-900">{paidSignups}</h4>
               </div>
             </div>
-          </div>
+          </div> */}
 
           <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
             <div className="flex items-center gap-4">
@@ -423,9 +423,9 @@ export default function InfluencerDashboard() {
                 <DollarSign className="h-6 w-6 text-yellow-600" />
               </div>
               <div>
-                <p className="text-sm text-slate-500 font-medium">Est. Earnings</p>
-                <h4 className="text-2xl font-bold text-slate-900">${estimatedEarnings.toFixed(2)}</h4>
-                <p className="text-xs text-slate-400 mt-1">Based on 20% commission</p>
+                <p className="text-sm text-slate-500 font-medium">Est. Earnings (INR)</p>
+                <h4 className="text-2xl font-bold text-slate-900">₹{estimatedEarningsINR.toLocaleString()}</h4>
+                <p className="text-xs text-slate-400 mt-1">₹425 per paid signup</p>
               </div>
             </div>
           </div>
