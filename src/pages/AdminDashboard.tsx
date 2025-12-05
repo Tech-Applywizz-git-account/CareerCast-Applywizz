@@ -15,7 +15,8 @@ import {
     X,
     Trash2,
     Key,
-    Edit
+    Edit,
+    Calendar
 } from 'lucide-react';
 import Toast from '../components/Toast';
 
@@ -542,11 +543,18 @@ export default function AdminDashboard() {
         }
     };
 
+    // Filter State for Signups
+    const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'pending' | 'failed'>('all');
+    const [dateFilter, setDateFilter] = useState('');
+
     const toggleInfluencer = (id: string) => {
         if (expandedInfluencer === id) {
             setExpandedInfluencer(null);
         } else {
             setExpandedInfluencer(id);
+            // Optional: Reset filters when opening a new influencer
+            setStatusFilter('all');
+            setDateFilter('');
         }
     };
 
@@ -649,6 +657,15 @@ export default function AdminDashboard() {
             .sort((a, b) => b.total_revenue - a.total_revenue)
             .map((inf, index) => [inf.id, index + 1])
     );
+
+    // Helper to filter signups
+    const getFilteredSignups = (signups: Signup[]) => {
+        return signups.filter(signup => {
+            const matchesStatus = statusFilter === 'all' || signup.payment_status === statusFilter;
+            const matchesDate = !dateFilter || new Date(signup.created_at).toLocaleDateString() === new Date(dateFilter).toLocaleDateString();
+            return matchesStatus && matchesDate;
+        });
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
@@ -791,6 +808,7 @@ export default function AdminDashboard() {
 
                 {/* Influencers List */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    {/* ... (List Header remains unchanged) ... */}
                     <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                             <h3 className="text-lg font-semibold text-slate-900">All Influencers</h3>
@@ -933,10 +951,24 @@ export default function AdminDashboard() {
                                         <div className="px-6 pb-4 bg-slate-50/50">
                                             <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                                                 <div className="px-4 py-3 bg-slate-100 border-b border-slate-200">
-                                                    <div className="flex justify-between items-center">
-                                                        <p className="text-sm font-semibold text-slate-900">
-                                                            User Signups ({influencer.signups.length})
-                                                        </p>
+                                                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                                                        <div className="flex items-center gap-4">
+                                                            <p className="text-sm font-semibold text-slate-900">
+                                                                User Signups ({influencer.signups.length})
+                                                            </p>
+                                                            {(statusFilter !== 'all' || dateFilter) && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setStatusFilter('all');
+                                                                        setDateFilter('');
+                                                                    }}
+                                                                    className="text-xs text-slate-500 hover:text-slate-700 underline"
+                                                                >
+                                                                    Clear Filters
+                                                                </button>
+                                                            )}
+                                                        </div>
+
                                                         <button
                                                             onClick={() => {
                                                                 setSelectedInfluencerForAdd(influencer);
@@ -961,73 +993,111 @@ export default function AdminDashboard() {
                                                                 <tr>
                                                                     <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Name</th>
                                                                     <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Email</th>
-                                                                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+                                                                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span>Status</span>
+                                                                            <div className="relative">
+                                                                                <select
+                                                                                    value={statusFilter}
+                                                                                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                                                                                    className="appearance-none text-xs border border-slate-300 rounded-md pl-2 pr-6 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white cursor-pointer font-normal normal-case"
+                                                                                >
+                                                                                    <option value="all">All</option>
+                                                                                    <option value="success">Success</option>
+                                                                                    <option value="pending">Pending</option>
+                                                                                    <option value="failed">Failed</option>
+                                                                                </select>
+                                                                                <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+                                                                            </div>
+                                                                        </div>
+                                                                    </th>
                                                                     <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Amount</th>
-                                                                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
+                                                                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span>Date</span>
+                                                                            <div className="relative">
+                                                                                <input
+                                                                                    type="date"
+                                                                                    value={dateFilter}
+                                                                                    onChange={(e) => setDateFilter(e.target.value)}
+                                                                                    className="text-xs border border-slate-300 rounded-md pl-7 pr-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white cursor-pointer font-normal w-32"
+                                                                                />
+                                                                                <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+                                                                            </div>
+                                                                        </div>
+                                                                    </th>
                                                                     <th className="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Actions</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-slate-200">
-                                                                {influencer.signups.map((signup) => (
-                                                                    <tr key={signup.id} className="hover:bg-slate-50">
-                                                                        <td className="px-4 py-3 whitespace-nowrap text-slate-900">
-                                                                            {signup.full_name}
+                                                                {getFilteredSignups(influencer.signups).length === 0 ? (
+                                                                    <tr>
+                                                                        <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                                                                            No signups match the selected filters
                                                                         </td>
-                                                                        <td className="px-4 py-3 whitespace-nowrap text-slate-600">
-                                                                            {signup.email}
-                                                                        </td>
-                                                                        <td className="px-4 py-3 whitespace-nowrap">
-                                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                                                                    </tr>
+                                                                ) : (
+                                                                    getFilteredSignups(influencer.signups).map((signup) => (
+                                                                        <tr key={signup.id} className="hover:bg-slate-50">
+                                                                            <td className="px-4 py-3 whitespace-nowrap text-slate-900">
+                                                                                {signup.full_name}
+                                                                            </td>
+                                                                            <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                                                                                {signup.email}
+                                                                            </td>
+                                                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                                         ${signup.payment_status === 'success' ? 'bg-green-100 text-green-800' : ''}
                                         ${signup.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
                                         ${signup.payment_status === 'failed' ? 'bg-red-100 text-red-800' : ''}
                                       `}>
-                                                                                {signup.payment_status || 'N/A'}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td className="px-4 py-3 whitespace-nowrap text-slate-600">
-                                                                            {signup.amount && signup.currency ? (
-                                                                                <>
-                                                                                    {signup.currency === 'USD' ? '$' : signup.currency === 'EUR' ? '€' : '£'}
-                                                                                    {signup.amount.toFixed(2)}
-                                                                                </>
-                                                                            ) : (
-                                                                                'N/A'
-                                                                            )}
-                                                                        </td>
-                                                                        <td className="px-4 py-3 whitespace-nowrap text-slate-600">
-                                                                            {new Date(signup.created_at).toLocaleDateString('en-US', {
-                                                                                month: 'short',
-                                                                                day: 'numeric',
-                                                                                year: 'numeric',
-                                                                                hour: '2-digit',
-                                                                                minute: '2-digit'
-                                                                            })}
-                                                                        </td>
-                                                                        <td className="px-4 py-3 whitespace-nowrap text-right">
-                                                                            <div className="flex items-center justify-end gap-2">
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        setSignupToMove(signup);
-                                                                                        setTargetInfluencerCode(influencer.promo_code); // Default to current
-                                                                                        setShowMoveModal(true);
-                                                                                    }}
-                                                                                    className="text-blue-600 hover:text-blue-800 p-1"
-                                                                                    title="Move to another influencer"
-                                                                                >
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
-                                                                                </button>
-                                                                                <button
-                                                                                    onClick={() => handleDeleteSignup(signup.id)}
-                                                                                    className="text-red-600 hover:text-red-800 p-1"
-                                                                                    title="Delete signup"
-                                                                                >
-                                                                                    <Trash2 className="h-4 w-4" />
-                                                                                </button>
-                                                                            </div>
-                                                                        </td>
-                                                                    </tr>
-                                                                ))}
+                                                                                    {signup.payment_status || 'N/A'}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                                                                                {signup.amount && signup.currency ? (
+                                                                                    <>
+                                                                                        {signup.currency === 'USD' ? '$' : signup.currency === 'EUR' ? '€' : '£'}
+                                                                                        {signup.amount.toFixed(2)}
+                                                                                    </>
+                                                                                ) : (
+                                                                                    'N/A'
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                                                                                {new Date(signup.created_at).toLocaleDateString('en-US', {
+                                                                                    month: 'short',
+                                                                                    day: 'numeric',
+                                                                                    year: 'numeric',
+                                                                                    hour: '2-digit',
+                                                                                    minute: '2-digit'
+                                                                                })}
+                                                                            </td>
+                                                                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                                                <div className="flex items-center justify-end gap-2">
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setSignupToMove(signup);
+                                                                                            setTargetInfluencerCode(influencer.promo_code); // Default to current
+                                                                                            setShowMoveModal(true);
+                                                                                        }}
+                                                                                        className="text-blue-600 hover:text-blue-800 p-1"
+                                                                                        title="Move to another influencer"
+                                                                                    >
+                                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => handleDeleteSignup(signup.id)}
+                                                                                        className="text-red-600 hover:text-red-800 p-1"
+                                                                                        title="Delete signup"
+                                                                                    >
+                                                                                        <Trash2 className="h-4 w-4" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))
+                                                                )}
                                                             </tbody>
                                                         </table>
                                                     </div>
