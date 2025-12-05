@@ -1,0 +1,210 @@
+/* ==========================================
+   CODE SNIPPETS FOR MANUAL EDITS
+   ========================================== */
+
+/* ==========================================
+   EDIT #1: Auth.tsx (Line ~547)
+   ========================================== 
+   
+   Replace the handleLogin function with this code.
+   This adds role-based routing logic.
+*/
+
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
+    await login(formData.email, formData.password);
+    
+    // Get user to check role
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      navigate("/dashboard");
+      return;
+    }
+
+    // Check if user is admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    // Check if user is influencer
+    const { data: influencer } = await supabase
+      .from('influencers')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    // Route based on role
+    if (profile?.role === 'admin') {
+      navigate("/admin-dashboard");
+    } else if (influencer) {
+      navigate("/influencer-dashboard");
+    } else {
+      navigate("/dashboard");
+    }
+  } catch (err) {
+    // handled in context
+  }
+};
+
+
+/* ==========================================
+   EDIT #2: SignupPage.tsx (Line ~1955)
+   ========================================== 
+   
+   Add this code AFTER the email field div
+   (after line 1955, before the Terms checkbox)
+*/
+
+                {/* Promo Code Field */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="promoCode"
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Promo Code (Optional)
+                  </label>
+                  <input
+                    id="promoCode"
+                    name="promoCode"
+                    type="text"
+                    value={form.promoCode}
+                    onChange={handleChange}
+                    placeholder="Enter promo code if you have one"
+                    className="w-full rounded-xl border border-transparent bg-indigo-50/60 px-4 py-3 text-gray-900 placeholder-gray-400 outline-none ring-1 ring-indigo-100 focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+
+
+/* ==========================================
+   SQL COMMANDS FOR TESTING
+   ========================================== */
+
+-- 1. Create an admin user (run in Supabase SQL Editor)
+-- Replace 'youremail@example.com' with your actual email
+UPDATE profiles 
+SET role = 'admin' 
+WHERE email = 'youremail@example.com';
+
+
+-- 2. Create a test influencer (two steps)
+
+-- Step A: Get the user_id for your influencer account
+SELECT id, email 
+FROM auth.users 
+WHERE email = 'influencer@example.com';
+
+-- Step B: Create influencer record (replace USER_ID_HERE with the ID from Step A)
+INSERT INTO influencers (user_id, promo_code, name, email, is_active)
+VALUES (
+  'USER_ID_HERE',
+  'INFLUENCER123',
+  'John Doe',
+  'influencer@example.com',
+  true
+);
+
+
+-- 3. Verify everything is set up correctly
+SELECT * FROM influencers;
+SELECT id, email, role FROM profiles WHERE role IS NOT NULL;
+
+
+/* ==========================================
+   IMPORT STATEMENT TO ADD
+   ========================================== 
+   
+   Make sure this import is at the top of Auth.tsx
+   (should already be there)
+*/
+
+import { supabase } from '../integrations/supabase/client';
+
+
+/* ==========================================
+   EXACT LOCATION GUIDE
+   ========================================== */
+
+/*
+   Auth.tsx location:
+   - Open: src/pages/Auth.tsx
+   - Find line 547 (search for "const handleLogin")
+   - Replace the entire function with the code above
+
+   SignupPage.tsx location:
+   - Open: src/pages/SignupPage.tsx
+   - Find line 1955 (search for "</div>" after email field)
+   - The line should be right before the comment "{/* Terms checkbox */}"
+   - Insert the promo code field code BETWEEN these
+*/
+
+
+/* ==========================================
+   VERIFICATION CHECKLIST
+   ========================================== */
+
+/*
+   ✅ After making changes, verify:
+   
+   1. [] Recharts installed (run: npm list recharts)
+   2. [] Database migration executed in Supabase
+   3. [] Auth.tsx updated with new handleLogin
+   4. [] SignupPage.tsx has promo code field
+   5. [] App.tsx has new dashboard routes (already done)
+   6. [] Test admin user created in database
+   7. [] Test influencer created in database
+   8. [] Dev server runs without errors (npm run dev)
+   9. [] Can access influencer dashboard
+   10. [] Can access admin dashboard
+*/
+
+
+/* ==========================================
+   TESTING FLOW
+   ========================================== */
+
+/*
+   Test the complete flow:
+   
+   1. Start dev server: npm run dev
+   2. Open http://localhost:5173
+   3. Go to /signup
+   4. Fill form with test data
+   5. Enter promo code: INFLUENCER123
+   6. Complete payment (if using test mode)
+   7. Login as influencer → should see /influencer-dashboard
+   8. Check that signup appears in influencer's table
+   9. Logout
+   10. Login as admin → should see /admin-dashboard
+   11. Verify influencer and their signups appear
+*/
+
+
+/* ==========================================
+   TROUBLESHOOTING
+   ========================================== */
+
+/*
+   If you see errors:
+   
+   1. "Cannot find module 'recharts'"
+      → Run: npm install recharts
+   
+   2. "relation 'influencers' does not exist"
+      → Run the SQL migration in Supabase
+   
+   3. "Cannot read property 'role' of null"
+      → Make sure user is logged in
+      → Check that profiles table has role column
+   
+   4. Not routing to correct dashboard
+      → Check that user has correct role in profiles table
+      → Check that influencer record exists in influencers table
+   
+   5. Charts not displaying
+      → Make sure recharts is installed
+      → Check browser console for errors
+*/

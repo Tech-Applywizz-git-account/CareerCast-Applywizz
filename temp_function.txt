@@ -1,0 +1,26 @@
+const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedInfluencer) return;
+
+    setPasswordSubmitting(true);
+    setPasswordError(null);
+
+    try {
+        if (!newPassword || newPassword.length < 6) {
+            throw new Error('Password must be at least 6 characters');
+        }
+
+        setPasswordSubmitting(false);
+        
+        showToast(`⚠️ Password Cannot Be Changed\\n\\nDue to security restrictions, passwords cannot be updated directly.\\n\\nPlease ask ${selectedInfluencer.name} to:\\n1. Go to /auth\\n2. Click "Forgot Password"\\n3. Reset via email: ${selectedInfluencer.email}\\n\\n💡 Suggested password: ${newPassword}`, 'info');
+
+        setShowPasswordModal(false);
+        setNewPassword('');
+        setSelectedInfluencer(null);
+
+    } catch (err: any) {
+        console.error('Error setting password:', err);
+        setPasswordError(err.message || 'Failed to set password');
+        setPasswordSubmitting(false);
+    }
+};
