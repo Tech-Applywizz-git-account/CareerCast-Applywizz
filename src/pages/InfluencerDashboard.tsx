@@ -506,9 +506,9 @@ export default function InfluencerDashboard() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Amount
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Commission
-                  </th>
+                  </th> */}
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Date
                   </th>
@@ -550,13 +550,13 @@ export default function InfluencerDashboard() {
                           'N/A'
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                      {/* <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
                         {signup.payment_status === 'success' && signup.amount ? (
                           `$${(signup.amount * 0.20).toFixed(2)}`
                         ) : (
                           '-'
                         )}
-                      </td>
+                      </td> */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         {new Date(signup.created_at).toLocaleDateString('en-US', {
                           month: 'short',
