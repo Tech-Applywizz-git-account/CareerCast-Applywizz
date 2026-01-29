@@ -164,7 +164,7 @@ export default function AdminDashboard() {
                     const { data: signups, error: signupsError } = await supabase
                         .from('users_by_form')
                         .select('id, full_name, email, payment_status, amount, currency, created_at')
-                        .eq('promo_code', influencer.promo_code)
+                        .ilike('promo_code', influencer.promo_code)
                         .order('created_at', { ascending: false });
 
                     if (signupsError) {
@@ -174,9 +174,9 @@ export default function AdminDashboard() {
 
                     const signupsList = signups || [];
                     const totalSignups = signupsList.length;
-                    const totalPaidSignups = signupsList.filter(s => s.payment_status === 'success').length;
+                    const totalPaidSignups = signupsList.filter(s => s.payment_status === 'success' || s.payment_status === 'completed').length;
                     const totalRevenue = signupsList
-                        .filter(s => s.payment_status === 'success')
+                        .filter(s => s.payment_status === 'success' || s.payment_status === 'completed')
                         .reduce((sum, s) => sum + (s.amount || 0), 0);
 
                     return {
@@ -1116,11 +1116,11 @@ export default function AdminDashboard() {
                                                                             </td>
                                                                             <td className="px-4 py-3 whitespace-nowrap">
                                                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                                        ${signup.payment_status === 'success' ? 'bg-green-100 text-green-800' : ''}
-                                        ${signup.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
-                                        ${signup.payment_status === 'failed' ? 'bg-red-100 text-red-800' : ''}
-                                      `}>
-                                                                                    {signup.payment_status || 'N/A'}
+                                                                        ${(signup.payment_status === 'success' || signup.payment_status === 'completed') ? 'bg-green-100 text-green-800' : ''}
+                                                                        ${signup.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
+                                                                        ${signup.payment_status === 'failed' ? 'bg-red-100 text-red-800' : ''}
+                                                                    `}>
+                                                                                    {signup.payment_status === 'success' ? 'Success' : signup.payment_status === 'completed' ? 'Completed' : (signup.payment_status || 'N/A')}
                                                                                 </span>
                                                                             </td>
                                                                             <td className="px-4 py-3 whitespace-nowrap text-slate-600">

@@ -98,11 +98,11 @@ export default function InfluencerDashboard() {
         throw new Error('Influencer profile not found');
       }
 
-      // Fetch signups with promo code
+      // Fetch signups with promo code (case-insensitive)
       const { data: signups, error: signupsError } = await supabase
         .from('users_by_form')
         .select('id, full_name, email, payment_status, amount, currency, created_at')
-        .eq('promo_code', influencer.promo_code)
+        .ilike('promo_code', influencer.promo_code)
         .order('created_at', { ascending: false });
 
       if (signupsError) {
@@ -170,8 +170,9 @@ export default function InfluencerDashboard() {
 
   // Filter signups based on date range AND payment status (completed only)
   const filteredSignups = (influencerData.signups || []).filter(signup => {
-    // Only show completed/paid signups
-    if (signup.payment_status !== 'success') return false;
+    // Show only paid signups in statistics and detailed list
+    const isPaid = signup.payment_status === 'success' || signup.payment_status === 'completed';
+    if (!isPaid) return false;
 
     if (dateRange === 'all') return true;
 
@@ -194,10 +195,11 @@ export default function InfluencerDashboard() {
     return dateRange === '30days' ? diffDays <= 30 : diffDays <= 7;
   });
 
-  // Calculate statistics based on filtered data
-  const paidSignups = filteredSignups.filter(s => s.payment_status === 'success').length;
-  const pendingSignups = filteredSignups.filter(s => s.payment_status === 'pending').length;
-  const failedSignups = filteredSignups.filter(s => s.payment_status === 'failed').length;
+  // Calculate statistics based on ALL signups vs FILTERED (paid) signups
+  const totalSignupsCount = (influencerData.signups || []).length;
+  const paidSignups = (influencerData.signups || []).filter(s => s.payment_status === 'success' || s.payment_status === 'completed').length;
+  const pendingSignups = (influencerData.signups || []).filter(s => s.payment_status === 'pending').length;
+  const failedSignups = (influencerData.signups || []).filter(s => s.payment_status === 'failed').length;
 
   // Calculate Earnings: 5 USD per completed signup, converted to INR at 85 rate
   // filteredSignups already contains only 'success' status signups
@@ -400,7 +402,8 @@ export default function InfluencerDashboard() {
               </div>
               <div>
                 <p className="text-sm text-slate-500 font-medium">Total Signups</p>
-                <h4 className="text-2xl font-bold text-slate-900">{filteredSignups.length}</h4>
+                <h4 className="text-2xl font-bold text-slate-900">{totalSignupsCount}</h4>
+                <p className="text-xs text-slate-400 mt-1">{paidSignups} Paid / {pendingSignups} Pending</p>
               </div>
             </div>
           </div>
@@ -533,11 +536,11 @@ export default function InfluencerDashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                          ${signup.payment_status === 'success' ? 'bg-green-100 text-green-800' : ''}
+                          ${(signup.payment_status === 'success' || signup.payment_status === 'completed') ? 'bg-green-100 text-green-800' : ''}
                           ${signup.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
                           ${signup.payment_status === 'failed' ? 'bg-red-100 text-red-800' : ''}
                         `}>
-                          {signup.payment_status || 'N/A'}
+                          {signup.payment_status === 'success' ? 'Success' : signup.payment_status === 'completed' ? 'Completed' : (signup.payment_status || 'N/A')}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">

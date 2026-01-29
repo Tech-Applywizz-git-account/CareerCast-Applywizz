@@ -74,7 +74,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Fetch all users who purchased using this influencer's promo code
+    // Fetch all users who purchased using this influencer's promo code (case-insensitive)
     const { data: purchases, error: purchasesError } = await supabase
       .from('users_by_form')
       .select('*')
