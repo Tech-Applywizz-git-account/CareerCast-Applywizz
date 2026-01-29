@@ -90,25 +90,14 @@ export default async function handler(req, res) {
     }
 
     // 📊 STATS CALCULATION LOGIC
-    // We combine data from the 'influencers' table (counters) and 'users_by_form' (event log)
-    // to provide the most accurate picture.
+    // We rely exclusively on the 'users_by_form' table (event log) for 100% accuracy.
+    // This ensures the summary statistics always match the detailed signup history.
 
-    // 1. Log-based stats (from users_by_form)
-    const totalSignupsLog = purchases.length;
+    const totalSignups = purchases.length;
     const paidPurchasesLog = purchases.filter(p => p.payment_status === 'success' || p.payment_status === 'completed');
-    const totalPaidSignupsLog = paidPurchasesLog.length;
-    const totalRevenueLog = paidPurchasesLog.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-
-    // 2. Profile-based stats (from influencers table counters)
-    const totalSignupsProfile = influencer.total_signups || 0;
-    const totalPaidSignupsProfile = influencer.total_paid_signups || 0;
-    const totalRevenueProfile = Number(influencer.total_revenue) || 0;
-
-    // 3. Final stats (Use the higher value to ensure we don't miss records not yet in users_by_form or vice versa)
-    const totalSignups = Math.max(totalSignupsLog, totalSignupsProfile);
-    const totalPaidSignups = Math.max(totalPaidSignupsLog, totalPaidSignupsProfile);
-    const totalRevenue = Math.max(totalRevenueLog, totalRevenueProfile);
-    const totalFreeSignups = Math.max(0, totalSignups - totalPaidSignups);
+    const totalPaidSignups = paidPurchasesLog.length;
+    const totalRevenue = paidPurchasesLog.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const totalFreeSignups = totalSignups - totalPaidSignups;
 
     // 4. Financial Calculations (Forced to INR as requested)
     const originalCurrency = paidPurchasesLog.length > 0 ? (paidPurchasesLog[0].currency || 'USD') : 'USD';
