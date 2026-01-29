@@ -133,8 +133,8 @@ export default async function handler(req, res) {
       },
       purchase_info: {
         payment_status: purchase.payment_status,
-        amount: Number(purchase.amount) || 0,
-        currency: purchase.currency || 'USD',
+        amount: Number((Number(purchase.amount) || 0) * conversionRate).toFixed(2),
+        currency: 'INR',
         promo_code_used: purchase.promo_code
       },
       timestamps: {
