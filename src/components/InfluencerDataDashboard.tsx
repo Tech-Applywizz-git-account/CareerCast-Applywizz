@@ -223,7 +223,7 @@ const InfluencerDataDashboard: React.FC<InfluencerDataDashboardProps> = ({ influ
                             </svg>
                         </div>
                         <div className="ml-4">
-                            <p className="text-sm text-gray-600">Earnings (INR)</p>
+                            <p className="text-sm text-gray-600">Earnings ({financial_summary.influencer_earnings.currency})</p>
                             <p className="text-2xl font-bold text-green-600">
                                 {financial_summary.influencer_earnings.formatted}
                             </p>

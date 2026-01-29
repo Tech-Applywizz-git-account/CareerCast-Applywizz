@@ -41,8 +41,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get email from query parameters
-    const { email } = req.query;
+    // Get email from query parameters (trimmed)
+    const email = (req.query.email || '').trim();
 
     // Validate email parameter
     if (!email) {
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     const { data: influencer, error: influencerError } = await supabase
       .from('influencers')
       .select('*')
-      .eq('email', email)
+      .ilike('email', email)
       .single();
 
     if (influencerError || !influencer) {
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
     const { data: purchases, error: purchasesError } = await supabase
       .from('users_by_form')
       .select('*')
-      .eq('promo_code', influencer.promo_code)
+      .ilike('promo_code', influencer.promo_code)
       .order('created_at', { ascending: false });
 
     if (purchasesError) {
@@ -100,7 +100,9 @@ export default async function handler(req, res) {
 
     // Determine currency (use the first purchase's currency or default to USD)
     const primaryCurrency = paidPurchases.length > 0 ? (paidPurchases[0].currency || 'USD') : 'USD';
-    const currencySymbol = primaryCurrency === 'GBP' ? '£' : (primaryCurrency === 'INR' ? '₹' : '$');
+    const currencySymbol = primaryCurrency === 'GBP' ? '£' :
+      (primaryCurrency === 'INR' ? '₹' :
+        (primaryCurrency === 'EUR' ? '€' : '$'));
 
     // Calculate earnings and expenses
     const commissionRate = 0.15; // 15% commission
