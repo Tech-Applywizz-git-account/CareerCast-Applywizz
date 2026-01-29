@@ -110,15 +110,17 @@ export default async function handler(req, res) {
     const totalRevenue = Math.max(totalRevenueLog, totalRevenueProfile);
     const totalFreeSignups = Math.max(0, totalSignups - totalPaidSignups);
 
-    // 4. Financial Calculations
-    const primaryCurrency = paidPurchasesLog.length > 0 ? (paidPurchasesLog[0].currency || 'USD') : 'USD';
-    const currencySymbol = primaryCurrency === 'GBP' ? '£' :
-      (primaryCurrency === 'INR' ? '₹' :
-        (primaryCurrency === 'EUR' ? '€' : '$'));
+    // 4. Financial Calculations (Forced to INR as requested)
+    const originalCurrency = paidPurchasesLog.length > 0 ? (paidPurchasesLog[0].currency || 'USD') : 'USD';
+    const conversionRate = originalCurrency === 'USD' ? 85 : 1;
+    const displayCurrency = 'INR';
+    const currencySymbol = '₹';
 
-    const commissionRate = 0.15; // 15% commission
-    const totalEarnings = totalRevenue * commissionRate;
-    const platformExpenses = totalRevenue * (1 - commissionRate);
+    const revenueINR = totalRevenue * conversionRate;
+    const payoutPerSignupUSD = 5; // $5 USD per paid signup
+    const totalEarningsUSD = totalPaidSignups * payoutPerSignupUSD;
+    const totalEarningsINR = totalEarningsUSD * conversionRate;
+    const platformExpensesINR = revenueINR - totalEarningsINR;
 
     // Process purchase data with detailed information
     const purchaseDetails = purchases.map(purchase => ({
@@ -196,35 +198,35 @@ export default async function handler(req, res) {
       },
       financial_summary: {
         total_revenue_generated: {
-          amount: totalRevenue,
-          currency: primaryCurrency,
-          formatted: `${currencySymbol}${totalRevenue.toFixed(2)}`
+          amount: revenueINR,
+          currency: displayCurrency,
+          formatted: `${currencySymbol}${revenueINR.toFixed(2)}`
         },
         influencer_earnings: {
-          amount: totalEarnings,
-          currency: primaryCurrency,
-          formatted: `${currencySymbol}${totalEarnings.toFixed(2)}`,
-          commission_rate: `${(commissionRate * 100)}%`
+          amount: totalEarningsINR,
+          currency: displayCurrency,
+          formatted: `${currencySymbol}${totalEarningsINR.toFixed(2)}`,
+          payout_per_signup: `$${payoutPerSignupUSD} USD`
         },
         total_earnings: {
-          amount: totalEarnings,
-          currency: primaryCurrency,
-          formatted: `${currencySymbol}${totalEarnings.toFixed(2)}`
+          amount: totalEarningsINR,
+          currency: displayCurrency,
+          formatted: `${currencySymbol}${totalEarningsINR.toFixed(2)}`
         },
         platform_expenses: {
-          amount: platformExpenses,
-          currency: primaryCurrency,
-          formatted: `${currencySymbol}${platformExpenses.toFixed(2)}`
+          amount: platformExpensesINR,
+          currency: displayCurrency,
+          formatted: `${currencySymbol}${platformExpensesINR.toFixed(2)}`
         },
         average_order_value: totalPaidSignups > 0
           ? {
-            amount: totalRevenue / totalPaidSignups,
-            currency: primaryCurrency,
-            formatted: `${currencySymbol}${(totalRevenue / totalPaidSignups).toFixed(2)}`
+            amount: revenueINR / totalPaidSignups,
+            currency: displayCurrency,
+            formatted: `${currencySymbol}${(revenueINR / totalPaidSignups).toFixed(2)}`
           }
           : {
             amount: 0,
-            currency: primaryCurrency,
+            currency: displayCurrency,
             formatted: `${currencySymbol}0.00`
           }
       },
