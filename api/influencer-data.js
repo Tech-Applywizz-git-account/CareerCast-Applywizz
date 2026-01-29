@@ -89,11 +89,23 @@ export default async function handler(req, res) {
       });
     }
 
+    // Calculate accurate stats from purchases array
+    const totalSignups = purchases.length;
+    const paidPurchases = purchases.filter(p => p.payment_status === 'success' || p.payment_status === 'completed');
+    const totalPaidSignups = paidPurchases.length;
+    const totalFreeSignups = totalSignups - totalPaidSignups;
+
+    // Calculate revenue from paid purchases
+    const totalRevenue = paidPurchases.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    // Determine currency (use the first purchase's currency or default to USD)
+    const primaryCurrency = paidPurchases.length > 0 ? (paidPurchases[0].currency || 'USD') : 'USD';
+    const currencySymbol = primaryCurrency === 'GBP' ? '£' : (primaryCurrency === 'INR' ? '₹' : '$');
+
     // Calculate earnings and expenses
-    const totalEarnings = influencer.total_revenue || 0;
-    const commissionRate = 0.15; // 15% commission (adjust as needed)
-    const influencerEarnings = totalEarnings * commissionRate;
-    const platformExpenses = totalEarnings * (1 - commissionRate);
+    const commissionRate = 0.15; // 15% commission
+    const influencerEarnings = totalRevenue * commissionRate;
+    const platformExpenses = totalRevenue * (1 - commissionRate);
 
     // Process purchase data with detailed information
     const purchaseDetails = purchases.map(purchase => ({
@@ -131,13 +143,16 @@ export default async function handler(req, res) {
       }
     }));
 
-    // Separate paid and unpaid purchases
-    const paidPurchases = purchaseDetails.filter(p => p.purchase_info.payment_status === 'success');
-    const unpaidPurchases = purchaseDetails.filter(p => p.purchase_info.payment_status !== 'success');
+    // Generate secure affiliate link (Base64 encoded PromoCode|ReversedCode)
+    const generateSecureHash = (code) => {
+      const checksum = code.split('').reverse().join('');
+      const str = `${code}|${checksum}`;
+      // In Node.js environment
+      return Buffer.from(str).toString('base64');
+    };
 
-    // Generate affiliate link (based on your domain)
-    const affiliateLink = `https://www.networknote.online/?ref=${influencer.promo_code}`;
-    const directReferralLink = `https://www.networknote.online/?ref=1FVQFLh1T7M01jUuRpQVA`; // From screenshot
+    const secureRef = generateSecureHash(influencer.promo_code);
+    const affiliateLink = `https://www.networknote.online/?ref=${secureRef}`;
 
     // Build comprehensive response
     const responseData = {
@@ -149,7 +164,7 @@ export default async function handler(req, res) {
         email: influencer.email,
         promo_code: influencer.promo_code,
         affiliate_link: affiliateLink,
-        direct_referral_link: directReferralLink,
+        direct_referral_link: affiliateLink,
         account_status: influencer.is_active ? 'Active' : 'Inactive',
         member_since: influencer.created_at ? new Date(influencer.created_at).toLocaleDateString('en-US', {
           year: 'numeric',
@@ -159,54 +174,54 @@ export default async function handler(req, res) {
         last_updated: influencer.updated_at
       },
       statistics: {
-        total_signups: influencer.total_signups || 0,
-        total_paid_signups: influencer.total_paid_signups || 0,
-        total_free_signups: (influencer.total_signups || 0) - (influencer.total_paid_signups || 0),
-        conversion_rate: influencer.total_signups > 0 
-          ? `${((influencer.total_paid_signups / influencer.total_signups) * 100).toFixed(2)}%`
+        total_signups: totalSignups,
+        total_paid_signups: totalPaidSignups,
+        total_free_signups: totalFreeSignups,
+        conversion_rate: totalSignups > 0
+          ? `${((totalPaidSignups / totalSignups) * 100).toFixed(2)}%`
           : '0%'
       },
       financial_summary: {
         total_revenue_generated: {
-          amount: totalEarnings,
-          currency: 'INR',
-          formatted: `₹${totalEarnings.toFixed(2)}`
+          amount: totalRevenue,
+          currency: primaryCurrency,
+          formatted: `${currencySymbol}${totalRevenue.toFixed(2)}`
         },
         influencer_earnings: {
           amount: influencerEarnings,
-          currency: 'INR',
-          formatted: `₹${influencerEarnings.toFixed(2)}`,
+          currency: primaryCurrency,
+          formatted: `${currencySymbol}${influencerEarnings.toFixed(2)}`,
           commission_rate: `${(commissionRate * 100)}%`
         },
         platform_expenses: {
           amount: platformExpenses,
-          currency: 'INR',
-          formatted: `₹${platformExpenses.toFixed(2)}`
+          currency: primaryCurrency,
+          formatted: `${currencySymbol}${platformExpenses.toFixed(2)}`
         },
-        average_order_value: influencer.total_paid_signups > 0
+        average_order_value: totalPaidSignups > 0
           ? {
-              amount: totalEarnings / influencer.total_paid_signups,
-              currency: 'INR',
-              formatted: `₹${(totalEarnings / influencer.total_paid_signups).toFixed(2)}`
-            }
+            amount: totalRevenue / totalPaidSignups,
+            currency: primaryCurrency,
+            formatted: `${currencySymbol}${(totalRevenue / totalPaidSignups).toFixed(2)}`
+          }
           : {
-              amount: 0,
-              currency: 'INR',
-              formatted: '₹0.00'
-            }
+            amount: 0,
+            currency: primaryCurrency,
+            formatted: `${currencySymbol}0.00`
+          }
       },
       purchases_breakdown: {
-        total_purchases: purchases.length,
-        paid_purchases_count: paidPurchases.length,
-        unpaid_purchases_count: unpaidPurchases.length,
-        paid_purchases: paidPurchases,
-        unpaid_purchases: unpaidPurchases
+        total_purchases: purchaseDetails.length,
+        paid_purchases_count: totalPaidSignups,
+        unpaid_purchases_count: totalFreeSignups,
+        paid_purchases: purchaseDetails.filter(p => p.purchase_info.payment_status === 'success' || p.purchase_info.payment_status === 'completed'),
+        unpaid_purchases: purchaseDetails.filter(p => p.purchase_info.payment_status !== 'success' && p.purchase_info.payment_status !== 'completed')
       },
       all_purchases: purchaseDetails,
       dashboard_data: {
         daily_signups_trend: {
-          paid_signups: influencer.total_paid_signups || 0,
-          total_signups: influencer.total_signups || 0
+          paid_signups: totalPaidSignups,
+          total_signups: totalSignups
         },
         recent_activity: purchaseDetails.slice(0, 10) // Last 10 purchases
       }
