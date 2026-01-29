@@ -89,24 +89,35 @@ export default async function handler(req, res) {
       });
     }
 
-    // Calculate accurate stats from purchases array
-    const totalSignups = purchases.length;
-    const paidPurchases = purchases.filter(p => p.payment_status === 'success' || p.payment_status === 'completed');
-    const totalPaidSignups = paidPurchases.length;
-    const totalFreeSignups = totalSignups - totalPaidSignups;
+    // 📊 STATS CALCULATION LOGIC
+    // We combine data from the 'influencers' table (counters) and 'users_by_form' (event log)
+    // to provide the most accurate picture.
 
-    // Calculate revenue from paid purchases
-    const totalRevenue = paidPurchases.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    // 1. Log-based stats (from users_by_form)
+    const totalSignupsLog = purchases.length;
+    const paidPurchasesLog = purchases.filter(p => p.payment_status === 'success' || p.payment_status === 'completed');
+    const totalPaidSignupsLog = paidPurchasesLog.length;
+    const totalRevenueLog = paidPurchasesLog.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
-    // Determine currency (use the first purchase's currency or default to USD)
-    const primaryCurrency = paidPurchases.length > 0 ? (paidPurchases[0].currency || 'USD') : 'USD';
+    // 2. Profile-based stats (from influencers table counters)
+    const totalSignupsProfile = influencer.total_signups || 0;
+    const totalPaidSignupsProfile = influencer.total_paid_signups || 0;
+    const totalRevenueProfile = Number(influencer.total_revenue) || 0;
+
+    // 3. Final stats (Use the higher value to ensure we don't miss records not yet in users_by_form or vice versa)
+    const totalSignups = Math.max(totalSignupsLog, totalSignupsProfile);
+    const totalPaidSignups = Math.max(totalPaidSignupsLog, totalPaidSignupsProfile);
+    const totalRevenue = Math.max(totalRevenueLog, totalRevenueProfile);
+    const totalFreeSignups = Math.max(0, totalSignups - totalPaidSignups);
+
+    // 4. Financial Calculations
+    const primaryCurrency = paidPurchasesLog.length > 0 ? (paidPurchasesLog[0].currency || 'USD') : 'USD';
     const currencySymbol = primaryCurrency === 'GBP' ? '£' :
       (primaryCurrency === 'INR' ? '₹' :
         (primaryCurrency === 'EUR' ? '€' : '$'));
 
-    // Calculate earnings and expenses
     const commissionRate = 0.15; // 15% commission
-    const influencerEarnings = totalRevenue * commissionRate;
+    const totalEarnings = totalRevenue * commissionRate;
     const platformExpenses = totalRevenue * (1 - commissionRate);
 
     // Process purchase data with detailed information
@@ -120,7 +131,7 @@ export default async function handler(req, res) {
       },
       purchase_info: {
         payment_status: purchase.payment_status,
-        amount: purchase.amount,
+        amount: Number(purchase.amount) || 0,
         currency: purchase.currency || 'USD',
         promo_code_used: purchase.promo_code
       },
@@ -190,10 +201,15 @@ export default async function handler(req, res) {
           formatted: `${currencySymbol}${totalRevenue.toFixed(2)}`
         },
         influencer_earnings: {
-          amount: influencerEarnings,
+          amount: totalEarnings,
           currency: primaryCurrency,
-          formatted: `${currencySymbol}${influencerEarnings.toFixed(2)}`,
+          formatted: `${currencySymbol}${totalEarnings.toFixed(2)}`,
           commission_rate: `${(commissionRate * 100)}%`
+        },
+        total_earnings: {
+          amount: totalEarnings,
+          currency: primaryCurrency,
+          formatted: `${currencySymbol}${totalEarnings.toFixed(2)}`
         },
         platform_expenses: {
           amount: platformExpenses,
