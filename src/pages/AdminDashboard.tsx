@@ -101,7 +101,7 @@ export default function AdminDashboard() {
     const [newSignup, setNewSignup] = useState({
         fullName: '',
         email: '',
-        amount: 12.99,
+        amount: 2,
         currency: 'USD',
         status: 'success'
     });
@@ -555,7 +555,7 @@ export default function AdminDashboard() {
             setNewSignup({
                 fullName: '',
                 email: '',
-                amount: 12.99,
+                amount: 2,
                 currency: 'USD',
                 status: 'success'
             });

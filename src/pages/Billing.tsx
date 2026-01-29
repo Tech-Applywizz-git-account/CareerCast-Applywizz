@@ -423,7 +423,7 @@ export default function Billing() {
     {
       key: "free",
       name: "Base Plan",
-      price: "$12.99",
+      price: "$2",
       period: "forever",
       features: [
         "3 CareerCast Credits",

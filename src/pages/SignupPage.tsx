@@ -1478,7 +1478,7 @@ const SignupPage: React.FC = () => {
   };
 
   const [plan, setPlan] = useState<"US" | "UK">(state.plan ?? "US");
-  const [amount, setAmount] = useState<number>(state.amount ?? 12.99); // Changed from 12.99 to 0.10
+  const [amount, setAmount] = useState<number>(state.amount ?? 2); // Changed from 12.99 to 2
   const [currency, setCurrency] = useState<string>(state.currency ?? "USD");
 
   const [step, setStep] = useState<Step>("form");
@@ -1627,14 +1627,14 @@ const SignupPage: React.FC = () => {
           } else {
             // Default to US for everyone else
             setPlan("US");
-            setAmount(12.99);
+            setAmount(2);
             setCurrency("USD");
           }
         } catch (e) {
           console.error("Error detecting location:", e);
           // Fallback to US defaults
           setPlan("US");
-          setAmount(12.99);
+          setAmount(2);
           setCurrency("USD");
         }
       }

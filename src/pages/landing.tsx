@@ -5370,7 +5370,7 @@ export default function Landing() {
   const faqs = [
     {
       q: "How do I create my first Network Note?",
-      a: "Simply get the credits by paying 12.99$ initially, upload your resume, record a 60-90 second video pitch, and share it with recruiters. Our platform guides you through each step.",
+      a: "Simply get the credits by paying 2$ initially, upload your resume, record a 60-90 second video pitch, and share it with recruiters. Our platform guides you through each step.",
     },
     {
       q: "Can I re-record my video?",
@@ -5441,7 +5441,7 @@ export default function Landing() {
 
   const handleBuyNow = (plan: "US" | "UK") => {
     const isUK = plan === "UK";
-    const amount = isUK ? 12.99 : 12.99;
+    const amount = isUK ? 12.99 : 2;
     const currency = isUK ? "GBP" : "USD";
     navigate("/signup" + location.search, {
       state: { plan, amount, currency },
@@ -5634,7 +5634,7 @@ export default function Landing() {
                             {userCountry === "US" && <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-cyan-500/90 text-slate-900">Recommended</span>}
                           </div>
                           <div className="mb-6">
-                            <span className="text-4xl font-bold">$12.99</span>
+                            <span className="text-4xl font-bold">$2</span>
                             <span className="text-slate-300 ml-2"> / lifetime</span>
                           </div>
                           <ul className="space-y-3 mb-8 text-sm">
